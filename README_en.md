@@ -112,6 +112,29 @@ oc-run2 --dir /path/A --prompt "..." --agent plan
 oc-run2 --dir /path/A --prompt "..." --json
 ```
 
+<details>
+<summary>📄 Output example (human-readable)</summary>
+
+```
+oc-run2 汇总 · 2 个任务 · 并行度 2 · 成功 2/2 · 花费 $0.0023
+────────────────────────────────────────────────────────────────────────
+✅ [1] projectA
+    session: ses_f7c0ada77ffeCFuvNs5qigdgC6
+    动作:   5 次 (glob×1 · grep×2 · read×2)
+    tokens: 41,236   cost: $0.0018
+    结果:   该项目使用 Python 3.12 + FastAPI …
+
+✅ [2] projectB
+    session: ses_f7c0b1e9dffeKq2wMn8stCfWX
+    动作:   3 次 (bash×1 · read×2)
+    tokens: 22,871   cost: $0.0005
+    结果:   主要文件清单如下 …
+
+总耗时: 3.4s
+```
+
+</details>
+
 ## 🆚 oc-run (V1) vs oc-run2 (V2)
 
 | | oc-run (OpenCode 1.x) | oc-run2 (OpenCode 2 beta) |

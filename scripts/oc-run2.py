@@ -25,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -63,7 +62,7 @@ HELP = f"""oc-run2 — 主 Agent 与 opencode2 子 Agent 之间的调度接口
    {PROG} --sessions                                      # 查看历史 session（跨所有项目）
    {PROG} --dir /path/A --session ses_xxx --prompt "继续上次的分析"
    说明: 续跑的工作目录语义由 OpenCode 2 决定（跟随 session 所属 project），
-   --dir 仅作展示/校验，不影响续跑。
+   --dir 仅作展示，不影响续跑。
 
 推荐用法
 --------
@@ -157,10 +156,12 @@ def build_tasks(args):
         for i, t in enumerate(raw):
             if not isinstance(t, dict) or "dir" not in t or "prompt" not in t:
                 sys.exit(f"错误: 任务文件第 {i + 1} 项缺少 dir 或 prompt 字段。\n")
+            if not (isinstance(t["dir"], str) and isinstance(t["prompt"], str)):
+                sys.exit(f"错误: 任务文件第 {i + 1} 项 dir/prompt 需为字符串。\n")
             tasks.append({
                 "dir": t["dir"],
                 "prompt": t["prompt"],
-                "title": t.get("title") or f"任务{i + 1}",
+                "title": str(t.get("title") or f"任务{i + 1}"),
             })
     else:
         if not args.dir:
@@ -291,7 +292,7 @@ def fetch_session_stats(session_id):
         if p.returncode != 0:
             return None
         data = _extract_data(json.loads(p.stdout))
-        if not isinstance(data, dict):
+        if not isinstance(data, dict) or data.get("_tag"):  # _tag: api 对 404 也 exit 0
             return None
         out = {}
         tk = data.get("tokens") or {}
@@ -360,7 +361,7 @@ def run_task(task, model, agent, timeout):
         cmd += ["--agent", agent]
     if model:
         cmd += ["--model", model]
-    cmd.append(task["prompt"])
+    cmd += ["--", task["prompt"]]  # 防止以 - 开头的 prompt 被当成 flag
 
     # 目录语义由 OpenCode 2 决定: 新任务按 cwd 解析 project/location（可能向上归并）;
     # 续跑跟随 session 所属 project，与 cwd 无关（实测确认），故不传 cwd
@@ -389,13 +390,27 @@ def run_task(task, model, agent, timeout):
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 except (ProcessLookupError, PermissionError):
                     pass
+                try:
+                    proc.wait(timeout=5)  # SIGKILL 后回收，避免僵尸进程
+                except subprocess.TimeoutExpired:
+                    pass
             if debug:
                 _debug_dump(task, stdout, stderr)
             detail = (stderr or "").strip()[-200:]
             msg = f"超过 {timeout}s 未完成，已终止"
             if detail:
                 msg += f"（stderr 末尾: {detail}）"
-            return _task_error(task, "timeout", msg)
+            entry = _task_error(task, "timeout", msg)
+            # 抢救部分输出: 跑满超时的任务通常已建 session、已有真实花费
+            partial = summarize_stream(task, stdout, "", 1)
+            for k in ("session_id", "tokens", "cost"):
+                if partial.get(k):
+                    entry[k] = partial[k]
+            if entry.get("session_id"):
+                stats = fetch_session_stats(entry["session_id"])
+                if stats:
+                    entry.update(stats)
+            return entry
     except FileNotFoundError:
         return _task_error(task, "error",
                            "找不到 opencode2 命令，请先安装 OpenCode 2 beta"
@@ -406,7 +421,11 @@ def run_task(task, model, agent, timeout):
 
     if debug:
         _debug_dump(task, stdout, stderr)
-    summary = summarize_stream(task, stdout, stderr, proc.returncode)
+    try:
+        summary = summarize_stream(task, stdout, stderr, proc.returncode)
+    except Exception as e:
+        # beta 字段类型漂移等解析异常: 只废掉单个任务，不炸整批
+        return _task_error(task, "error", f"解析输出失败: {e}")
     # 用官方 API 的权威 tokens/cost 修正流式统计（流里末步可能没有 step_finish）
     if summary["session_id"]:
         stats = fetch_session_stats(summary["session_id"])
@@ -421,7 +440,7 @@ def format_ts(ms):
     """epoch 毫秒 → 本地时间 MM-DD HH:MM"""
     try:
         return time.strftime("%m-%d %H:%M", time.localtime(ms / 1000))
-    except (TypeError, ValueError, OSError):
+    except (TypeError, ValueError, OSError, OverflowError):
         return str(ms)
 
 
@@ -440,10 +459,12 @@ def list_sessions(n):
         raise RuntimeError(p.stderr.strip()[-200:] or f"exit {p.returncode}")
     rows = _extract_data(json.loads(p.stdout))
     if not isinstance(rows, list):
-        raise RuntimeError("API 返回结构异常（非列表）")
+        raise RuntimeError(f"API 返回异常: {str(rows)[:200]}")
 
     items = []
     for r in rows:
+        if not isinstance(r, dict):
+            continue  # 单行脏数据不毁掉整个列表
         model = r.get("model") or {}
         model_id = "/".join(
             x for x in (model.get("providerID"), model.get("id")) if x) or None
@@ -459,7 +480,7 @@ def list_sessions(n):
                 for k in ("input", "output", "reasoning")),
             "cost": r.get("cost"),
         })
-    items.sort(key=lambda x: x["updated"] or "", reverse=True)
+    # API 本身按 updated 倒序返回（实测确认）；本地按格式化串重排反而跨年错序
     return items[:n]
 
 
@@ -493,7 +514,7 @@ def fmt_cost(c):
 
 def print_human(results, workers, truncate_n=None):
     n_ok = sum(1 for r in results if r["status"] == "ok")
-    cost_all = sum(r.get("cost") or 0 for r in results if r["status"] == "ok")
+    cost_all = sum(r.get("cost") or 0 for r in results)  # 含失败任务的真实花费
     print(f"oc-run2 汇总 · {len(results)} 个任务 · 并行度 {workers} · 成功 {n_ok}/{len(results)}"
           f" · 花费 {fmt_cost(cost_all)}")
     print("─" * 72)
@@ -590,8 +611,7 @@ def main():
                 "total": len(results),
                 "parallel": workers,
                 "ok": sum(1 for r in results if r["status"] == "ok"),
-                "cost": round(sum(r.get("cost") or 0 for r in results
-                                  if r["status"] == "ok"), 6),
+                "cost": round(sum(r.get("cost") or 0 for r in results), 6),
                 "elapsed_sec": round(elapsed, 1),
                 "opencode2_version": _opencode2_version(),
             },

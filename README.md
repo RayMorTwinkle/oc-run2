@@ -64,7 +64,7 @@ oc-run2 是一层薄薄的适配器：给出若干"工作区目录 + 提示词"�
 3. （可选但推荐）把 oc-run2 命令放进 PATH，方便直接调用：
    ln -sf ~/.agents/skills/oc-run2-subagent/scripts/oc-run2.py ~/.local/bin/oc-run2
 4. 验证命令：oc-run2 --help 应输出中文使用说明；若 PATH 里没有，用 python3 ~/.agents/skills/oc-run2-subagent/scripts/oc-run2.py --help。
-5. 端到端测试：oc-run2 --sessions 3 应列出最近 3 个 session（跨所有 git 项目）。
+5. 端到端测试：oc-run2 --sessions 3 应列出最近 3 个 session（跨所有项目）。
    若报"未找到 opencode2"，请先安装 OpenCode 2 beta 或告知用户；oc-run2 有内置探测，
    会按常见路径（~/.opencode/bin、homebrew 等）自动查找。
 6. 向用户确认安装成功，并简述 oc-run2 的能力：并行派活 / 原生续跑（--session）/
@@ -119,15 +119,17 @@ oc-run2 汇总 · 2 个任务 · 并行度 2 · 成功 2/2 · 花费 $0.0023
 ────────────────────────────────────────────────────────────────────────
 ✅ [1] projectA
     session: ses_f7c0ada77ffeCFuvNs5qigdgC6
-    动作:   5 次 (grep×2 · read×2 · glob×1)
+    动作:   5 次 (glob×1 · grep×2 · read×2)
     tokens: 41,236   cost: $0.0018
     结果:   该项目使用 Python 3.12 + FastAPI …
 
 ✅ [2] projectB
     session: ses_f7c0b1e9dffeKq2wMn8stCfWX
-    动作:   3 次 (read×2 · bash×1)
+    动作:   3 次 (bash×1 · read×2)
     tokens: 22,871   cost: $0.0005
     结果:   主要文件清单如下 …
+
+总耗时: 3.4s
 ```
 
 </details>
