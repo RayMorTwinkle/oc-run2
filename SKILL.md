@@ -47,9 +47,10 @@ oc-run2 --dir /path/A --dir /path/B --prompt "用中文简述这个项目"
 # 批量任务文件（每任务自定义 dir / prompt / title）
 oc-run2 --tasks tasks.json   # 文件为 [{"dir": "...", "prompt": "...", "title": "..."}, ...]
 
-# 续跑：接着某个 session 的上下文继续跑（OpenCode 2 原生支持，保持记忆）
+4) 续跑：接着某个 session 的上下文继续跑（OpenCode 2 原生支持，保持记忆）
 oc-run2 --sessions                                   # 查看历史 session（跨所有项目，官方 API）
 oc-run2 --dir /path/A --session ses_xxx --prompt "继续上次的分析"
+# 说明：续跑的工作目录语义由 OpenCode 2 决定（跟随 session 所属 project），--dir 仅作展示
 
 # 指定模型 / 模型变体 / agent（不传则用 opencode2 配置）
 oc-run2 --dir /path/A --prompt "..." --model volcengine/glm-5.3-flash

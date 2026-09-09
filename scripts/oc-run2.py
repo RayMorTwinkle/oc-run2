@@ -62,7 +62,8 @@ HELP = f"""oc-run2 — 主 Agent 与 opencode2 子 Agent 之间的调度接口
 4) 接着某个 session 的上下文继续跑（续跑，OpenCode 2 原生支持）:
    {PROG} --sessions                                      # 查看历史 session（跨所有项目）
    {PROG} --dir /path/A --session ses_xxx --prompt "继续上次的分析"
-   说明: 续跑实际工作目录为 session 原属目录，--dir 仅作展示/校验。
+   说明: 续跑的工作目录语义由 OpenCode 2 决定（跟随 session 所属 project），
+   --dir 仅作展示/校验，不影响续跑。
 
 推荐用法
 --------
@@ -361,8 +362,9 @@ def run_task(task, model, agent, timeout):
         cmd += ["--model", model]
     cmd.append(task["prompt"])
 
-    # 续跑时工作目录以 session 原属目录为准；--dir 仅作展示/校验
-    cwd = task["dir"] if (not task.get("session") or os.path.isdir(task["dir"])) else None
+    # 目录语义由 OpenCode 2 决定: 新任务按 cwd 解析 project/location（可能向上归并）;
+    # 续跑跟随 session 所属 project，与 cwd 无关（实测确认），故不传 cwd
+    cwd = task["dir"] if not task.get("session") else None
 
     try:
         # start_new_session: 独立进程组，超时后可按组清理孙进程
