@@ -1,0 +1,35 @@
+<svg viewBox="0 0 160 160" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+  <title>oc-run2</title>
+  <defs>
+    <!-- Deep violet gradient: same design language as oc-run, new color for V2 -->
+    <linearGradient id="bg-violet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4C1D95" />
+      <stop offset="100%" stop-color="#2E1065" />
+    </linearGradient>
+    <!-- Dark shadow to give depth against any background. -->
+    <filter id="shadow-b" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Background Rect with Shadow -->
+  <rect x="30" y="30" width="100" height="100" rx="22.5" fill="url(#bg-violet)" filter="url(#shadow-b)" />
+
+  <!-- Subtle inner and outer borders for a glossy tech finish -->
+  <rect x="30" y="30" width="100" height="100" rx="22.5" fill="none" stroke="#7C3AED" stroke-width="1" />
+  <rect x="31" y="31" width="98" height="98" rx="21.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="1" />
+
+  <!-- The Speed Glyph (inherited from oc-run) -->
+  <g transform="translate(50, 46) scale(2.5)" fill="#FFFFFF" fill-rule="evenodd">
+    <!-- Main Box -->
+    <path d="M2 2h12v20H2zm4 4v12h4V6z" />
+    <!-- Speed Lines -->
+    <path d="M16 4h6v4h-6z" fill-opacity=".3" />
+    <path d="M16 10h8v4h-8z" />
+    <path d="M16 16h6v4h-6z" fill-opacity=".3" />
+  </g>
+
+  <!-- V2 badge -->
+  <circle cx="112" cy="112" r="14" fill="#FFFFFF" />
+  <text x="112" y="118.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="bold" fill="#4C1D95">2</text>
+</svg>
